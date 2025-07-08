@@ -474,6 +474,7 @@ var (
 	anyTypeName        = types2.Universe.Lookup("any").(*types2.TypeName)
 	comparableTypeName = types2.Universe.Lookup("comparable").(*types2.TypeName)
 	runeTypeName       = types2.Universe.Lookup("rune").(*types2.TypeName)
+	errorType          = types2.Universe.Lookup("error").(*types2.TypeName)
 )
 
 // typ writes a use of the given type into the bitstream.
@@ -1294,6 +1295,9 @@ func (w *writer) stmt1(stmt syntax.Stmt) {
 	case nil, *syntax.EmptyStmt:
 		return
 
+	case *syntax.ThrowStmt:
+		w.throwStmt(stmt)
+
 	case *syntax.AssignStmt:
 		switch {
 		case stmt.Rhs == nil:
@@ -1418,6 +1422,23 @@ func (w *writer) assignList(expr syntax.Expr) {
 func (w *writer) assign(expr syntax.Expr) {
 	expr = syntax.Unparen(expr)
 
+	if t, ok := expr.(*syntax.Throw); ok {
+		errorType := errorType.Type()
+		errorVar := types2.NewVar(expr.Pos(), w.p.curpkg, "^", errorType)
+
+		w.Code(assignDef)
+		w.pos(errorVar)
+		w.localIdent(errorVar)
+		w.typ(errorVar.Type())
+
+		w.addLocal(errorVar)
+
+		// Save local index for the return statement
+		t.Idx = w.localsIdx[errorVar]
+
+		return
+	}
+
 	if name, ok := expr.(*syntax.Name); ok {
 		if name.Value == "_" {
 			w.Code(assignBlank)
@@ -1471,6 +1492,10 @@ func (w *writer) assignStmt(pos poser, lhs0, rhs0 syntax.Expr) {
 
 	dstType := func(i int) types2.Type {
 		dst := lhs[i]
+
+		if _, ok := syntax.Unparen(dst).(*syntax.Throw); ok {
+			return errorType.Type()
+		}
 
 		// Finding dstType is somewhat involved, because for VarDecl
 		// statements, the Names are only added to the info.{Defs,Uses}
@@ -3128,4 +3153,109 @@ func (pw *pkgWriter) terminates(stmt syntax.Stmt) bool {
 	}
 
 	return false
+}
+
+func (w *writer) throwStmt(stmt *syntax.ThrowStmt) {
+
+	w.assignStmt(stmt, stmt.AssignStmt.Lhs, stmt.AssignStmt.Rhs)
+
+	lhs := syntax.UnpackListExpr(stmt.AssignStmt.Lhs)
+	throw := lhs[len(lhs)-1].(*syntax.Throw)
+
+	// Generate the if statement to evaluate the presence of an error
+	w.Code(stmtIf)
+	w.Sync(pkgbits.SyncIfStmt)
+	w.openScope(stmt.Pos())
+	w.pos(stmt)
+	w.stmt(nil) // no init
+
+	// Generate the condition: error != nil
+	w.Code(exprBinaryOp)
+	w.op(ir.ONE) // Not equal operator
+	// Generate the LHS (our error variable)
+	w.Code(exprReshape)
+	w.typ(errorType.Type())
+	w.Code(exprLocal)
+	w.Sync(pkgbits.SyncUseObjLocal)
+	w.Bool(true)
+	w.Len(throw.Idx)
+	w.pos(stmt)
+
+	// Generate the RHS (nil)
+	w.Code(exprZero)
+	w.pos(stmt)
+	w.typ(errorType.Type())
+
+	// Static evaluation result (0 means unknown)
+	w.Int(0)
+
+	// Generate the then block
+	w.Sync(pkgbits.SyncBlockStmt)
+	w.openScope(stmt.Pos())
+	w.Sync(pkgbits.SyncStmts)
+	// Generate return statement in then block
+	w.Code(stmtReturn)
+	w.pos(stmt)
+	w.Sync(pkgbits.SyncMultiExpr)
+	w.Bool(false)
+
+	results := w.sig.Results()
+	w.Len(results.Len()) // number of return values
+
+	// Write out nil or default values for each result, except the last one which is the error
+	for i := 0; i < results.Len()-1; i++ {
+		result := results.At(i)
+		w.writeNil(stmt, result)
+	}
+
+	// Now write out our error
+	w.Code(exprReshape)
+	w.typ(errorType.Type())
+	w.Code(exprLocal)
+	w.Sync(pkgbits.SyncUseObjLocal)
+	w.Bool(true)
+	w.Len(throw.Idx)
+
+	w.Code(stmtEnd)
+	w.Sync(pkgbits.SyncStmtsEnd)
+	w.closeScope(stmt.Pos())
+
+	// No else block
+	w.stmt(nil)
+	w.closeAnotherScope()
+}
+
+func (w *writer) writeNil(stmt *syntax.ThrowStmt, result *types2.Var) {
+	typ := result.Type()
+
+	// Check if it's a basic type
+	if basic, ok := typ.(*types2.Basic); ok {
+		w.Code(exprConst)
+		w.pos(stmt)
+		w.typ(typ)
+
+		// Write the appropriate zero value based on the basic type
+		switch basic.Kind() {
+		case types2.Bool:
+			w.Value(constant.MakeBool(false))
+		case types2.Int, types2.Int8, types2.Int16, types2.Int32, types2.Int64,
+			types2.Uint, types2.Uint8, types2.Uint16, types2.Uint32, types2.Uint64, types2.Uintptr:
+			w.Value(constant.MakeInt64(0))
+		case types2.Float32, types2.Float64:
+			w.Value(constant.MakeFloat64(0))
+		case types2.Complex64, types2.Complex128:
+			w.Value(constant.MakeImag(constant.MakeFloat64(0)))
+		case types2.String:
+			w.Value(constant.MakeString(""))
+		default:
+			// For any other basic type, use zero
+			w.Value(constant.MakeInt64(0))
+		}
+		return
+	}
+
+	// For non-basic types (struct, interface, etc.), use nil
+	w.Code(exprZero)
+	w.pos(stmt)
+	w.typ(typ)
 }

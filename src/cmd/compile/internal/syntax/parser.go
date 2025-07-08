@@ -890,7 +890,20 @@ func (p *parser) unaryExpr() Expr {
 	switch p.tok {
 	case _Operator, _Star:
 		switch p.op {
-		case Mul, Add, Sub, Not, Xor, Tilde:
+		case Xor:
+			x := new(Operation)
+			x.pos = p.pos()
+			x.Op = p.op
+			p.next()
+			if p.tok == _Define || p.tok == _Assign {
+				t := new(Throw) // ^ = or ^ := is a throw statement
+				t.pos = p.pos()
+				return t
+			}
+			x.X = p.unaryExpr()
+			return x
+
+		case Mul, Add, Sub, Not, Tilde:
 			x := new(Operation)
 			x.pos = p.pos()
 			x.Op = p.op
@@ -2202,6 +2215,16 @@ func (p *parser) simpleStmt(lhs Expr, keyword token) SimpleStmt {
 			}
 		}
 
+		// If the last element of LHS on an assign is a throw, then wrap as a throw statement
+		switch v := lhs.(type) {
+		case (*ListExpr):
+			if _, ok := v.ElemList[len(v.ElemList)-1].(*Throw); ok {
+				return p.newThrowStmt(p.newAssignStmt(pos, op, lhs, rhs))
+			}
+		case (*Throw):
+			return p.newThrowStmt(p.newAssignStmt(pos, op, lhs, rhs))
+		}
+
 		return p.newAssignStmt(pos, op, lhs, rhs)
 
 	default:
@@ -2235,6 +2258,13 @@ func (p *parser) newAssignStmt(pos Pos, op Operator, lhs, rhs Expr) *AssignStmt 
 	a.Lhs = lhs
 	a.Rhs = rhs
 	return a
+}
+
+func (p *parser) newThrowStmt(assignStmt *AssignStmt) *ThrowStmt {
+	t := new(ThrowStmt)
+	t.pos = assignStmt.pos
+	t.AssignStmt = assignStmt
+	return t
 }
 
 func (p *parser) labeledStmtOrNil(label *Name) Stmt {

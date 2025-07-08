@@ -359,6 +359,9 @@ func (p *printer) printRawNode(n Node) {
 	case *BadExpr:
 		p.print(_Name, "<bad expr>")
 
+	case *Throw:
+		p.print(_Name, "<throw expr>")
+
 	case *Name:
 		p.print(_Name, n.Value) // _Name requires actual value following immediately
 

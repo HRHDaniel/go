@@ -1,0 +1,92 @@
+
+go run throw.go
+! stderr 'error:'
+! stdout .
+
+-- throw.go --
+package main
+
+import (
+	"fmt"
+	"errors"
+)
+
+func main() {
+
+    err := noExpectedErrors1()
+    if err != nil {
+        fmt.Println("error: noExpectedErrors1() unexpected error returned ", err)
+    }
+
+    err = noExpectedErrors2()
+    if err != nil {
+        fmt.Println("error: noExpectedErrors2() unexpected error returned ", err)
+    }
+
+    err = expectedErrorSignature1Results1()
+    if err == nil {
+        fmt.Println("error: expected error not returned from expectedErrorSignature1Results1")
+    }
+
+    err = expectedErrorSignature1Results2()
+    if err == nil {
+        fmt.Println("error: expected error not returned from expectedErrorSignature1Results2")
+    }
+
+    _, err = expectedErrorSignature2Results1()
+    if err == nil {
+        fmt.Println("error: expected error not returned from expectedErrorSignature2Results1")
+    }
+
+    _, err = expectedErrorSignature2Results2()
+    if err == nil {
+        fmt.Println("error: expected error not returned from expectedErrorSignature2Results2")
+    }
+}
+
+func returnError (b bool) error {
+    if b {
+        return errors.New("some error")
+    }
+	return nil
+}
+
+func returnErrorOrReturnInt (b bool) (int, error) {
+    if b {
+        return 0, errors.New("some error")
+    }
+	return 1, nil
+}
+
+func noExpectedErrors1() error {
+    ^ = returnError(false)
+    return nil
+}
+
+func noExpectedErrors2() error {
+    i, ^ := returnErrorOrReturnInt(false)
+    if i != 1 {
+        return errors.New("happy path returned non-1")
+    }
+    return nil
+}
+
+func expectedErrorSignature1Results1() error {
+    ^ = returnError(true)
+    return nil
+}
+
+func expectedErrorSignature1Results2() error {
+    _, ^ = returnErrorOrReturnInt(true)
+    return nil
+}
+
+func expectedErrorSignature2Results1() (int, error) {
+    ^ = returnError(true)
+    return 0, nil
+}
+
+func expectedErrorSignature2Results2() (string, error) {
+    _, ^ = returnErrorOrReturnInt(true)
+    return "", nil
+}

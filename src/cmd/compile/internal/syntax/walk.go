@@ -112,6 +112,7 @@ func (w walker) node(n Node) {
 	// expressions
 	case *BadExpr: // nothing to do
 	case *Name: // nothing to do
+	case *Throw: // nothing to do
 	case *BasicLit: // nothing to do
 
 	case *CompositeLit:
@@ -230,6 +231,9 @@ func (w walker) node(n Node) {
 
 	case *DeclStmt:
 		w.declList(n.DeclList)
+
+	case *ThrowStmt:
+		w.node(n.AssignStmt)
 
 	case *AssignStmt:
 		w.node(n.Lhs)

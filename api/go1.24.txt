@@ -130,6 +130,12 @@ pkg encoding, type BinaryAppender interface { AppendBinary } #62384
 pkg encoding, type BinaryAppender interface, AppendBinary([]uint8) ([]uint8, error) #62384
 pkg encoding, type TextAppender interface { AppendText } #62384
 pkg encoding, type TextAppender interface, AppendText([]uint8) ([]uint8, error) #62384
+pkg go/ast, method (*Throw) End() token.Pos #74255
+pkg go/ast, method (*Throw) Pos() token.Pos #74255
+pkg go/ast, type Throw struct #74255
+pkg go/ast, type Throw struct, Idx int #74255
+pkg go/ast, type Throw struct, NamePos token.Pos #74255
+pkg go/ast, type Throw struct, Value Expr #74255
 pkg go/types, method (*Interface) EmbeddedTypes() iter.Seq[Type] #66626
 pkg go/types, method (*Interface) ExplicitMethods() iter.Seq[*Func] #66626
 pkg go/types, method (*Interface) Methods() iter.Seq[*Func] #66626

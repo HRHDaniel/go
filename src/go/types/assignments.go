@@ -533,6 +533,10 @@ func (check *Checker) shortVarDecl(pos positioner, lhs, rhs []ast.Expr) {
 	newVars := make([]*Var, 0, len(lhs))
 	hasErr := false
 	for i, lhs := range lhs {
+		if _, ok := lhs.(*ast.Throw); ok {
+			lhsVars[i] = NewVar(lhs.Pos(), check.pkg, "^", Universe.Lookup("error").Type())
+			continue
+		}
 		ident, _ := lhs.(*ast.Ident)
 		if ident == nil {
 			check.useLHS(lhs)
