@@ -1,42 +1,51 @@
-# The Go Programming Language
+# Go and Throw
 
-Go is an open source programming language that makes it easy to build simple,
-reliable, and efficient software.
+![Gopher image](thrownGopher.png)
 
-![Gopher image](https://golang.org/doc/gopher/fiveyears.jpg)
-*Gopher image by [Renee French][rf], licensed under [Creative Commons 4.0 Attribution license][cc4-by].*
+This is a fork of Go to address one of the most infamous issue with Go: the proliferation of
+manual error propagation in the various forms of
+```
+if err != nil {
+    return err
+}
+```
 
-Our canonical Git repository is located at https://go.googlesource.com/go.
-There is a mirror of the repository at https://github.com/golang/go.
+This fork introduces the "throw operator", `^`, which is used to propagate errors.
 
-Unless otherwise noted, the Go source files are distributed under the
-BSD-style license found in the LICENSE file.
+This operator may be used as the last LHS expressession in an assignment or define statement.
+
+```go
+^ = f()
+i, ^ := g()
+```
+is the equivalent of
+```go
+var err error
+err = f()
+if err != nil {
+    return err
+}
+i, err := g()
+if err != nil {
+    return err
+}
+```
+
+`^` may be used in the context of a define statement, `:=`, but does not count as a new variable, so an error "no new variables on left side of :=" will be reported if a new variable is not present.
+It must be the last variable in the list, and can only be used within a function whose return type is a tuple of the form `(..., error)`. 
+
+`^` does not create a variable named "err" and does not conflict with nor change the value of any existing variable named "err".
+
+Other return parameters are returned with their zero values. This includes cases where a func defines named return variables. Values that may have been assigned to the named return variables are not returned, but the zero values are instead when propagating an error.
+
+Because this change is additive, it is fully compatible with existing Go code.
 
 ### Download and Install
 
-#### Binary Distributions
-
-Official binary distributions are available at https://go.dev/dl/.
-
-After downloading a binary release, visit https://go.dev/doc/install
-for installation instructions.
-
 #### Install From Source
 
-If a binary distribution is not available for your combination of
-operating system and architecture, visit
-https://go.dev/doc/install/source
-for source installation instructions.
+Branch `throwOperator` contains the throw operator implementation from the master go branch.
 
-### Contributing
+Branch `throwOperator{version}` is based on the release branch of that version, e.g. `throwOperator1.24` is based on `release-branch.go1.24`.
 
-Go is the work of thousands of contributors. We appreciate your help!
-
-To contribute, please read the contribution guidelines at https://go.dev/doc/contribute.
-
-Note that the Go project uses the issue tracker for bug reports and
-proposals only. See https://go.dev/wiki/Questions for a list of
-places to ask questions about the Go language.
-
-[rf]: https://reneefrench.blogspot.com/
-[cc4-by]: https://creativecommons.org/licenses/by/4.0/
+For the same installation instructions as go, see https://go.dev/doc/install/source.
