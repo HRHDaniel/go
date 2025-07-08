@@ -3068,6 +3068,131 @@ func TestVersionWithoutPos(t *testing.T) {
 	}
 }
 
+func TestThrows(t *testing.T) {
+	var tests = []struct {
+		src  string
+		want string
+	}{
+		{
+			src: `
+			package p;
+			func e() int { return 0 }
+			func f() error { ^ = e(); return nil }
+			`,
+			want: "cannot use e() (value of type int) as error value in assignment: int does not implement error (missing method Error)",
+		},
+		{
+			src: `
+			package p;
+			func e() error { return nil }
+			func f() error { ^ := e(); return nil }
+			`,
+			want: "no new variables on left side of :=",
+		},
+		{
+			src: `
+			package p;
+			func e() (int, error) { return 0, nil }
+			func f() (int, error) { i, ^ := e(); return i, nil }
+			`,
+			want: "",
+		},
+		{
+			src: `
+			package p;
+			func e() (int, int) { return 0, 0 }
+			func f() (int, error) { i, ^ := e(); return i, nil }
+			`,
+			want: "int does not implement error",
+		},
+		{
+			src: `
+			package p;
+			func e() (int, error) { return 0, nil }
+			func f() (int, error) { var i int; i, ^ := e(); return i, nil }
+			`,
+			want: "no new variables on left side of :=",
+		},
+		{
+			src: `
+			package p;
+			func e() (int, int, error) { return 0, 0, nil }
+			func f() (int, error) { i, ^ := e(); return i, nil }
+			`,
+			want: "assignment mismatch: 2 variables but e returns 3 values",
+		},
+		{
+			src: `
+			package p;
+			func e() (int, error) { return 0, nil }
+			func f() (int, int) { i, ^ := e(); return i, 0 }
+			`,
+			want: "cannot use <throw expr> (variable of interface type error) as int value in return statement",
+		},
+		{
+			src: `
+			package p;
+			func e() error { return nil }
+			func f() (int, error) { var i int; ^ = e(); return i, nil }
+			`,
+			want: "",
+		},
+		{
+			src: `
+			package p;
+			func e() (int, error) { return 0, nil }
+			func f() (int, error) { var i int; _, ^ = e(); return i, nil }
+			`,
+			want: "",
+		},
+		{
+			src: `
+			package p;
+			func e() (int, error) { return 0, nil }
+			func f() (int, error) { var i int; i, ^ = e(); return i, nil }
+			`,
+			want: "",
+		},
+		{
+			src: `
+			package p;
+			func e() error { return nil }
+			func f() int { ^ = e(); return 1 }
+			`,
+			want: "cannot use <throw expr> (variable of interface type error) as int value in return statement",
+		},
+		{
+			src: `
+			package p;
+			func e() error { return nil }
+			func f() { ^ = e(); return }
+			`,
+			want: "cannot use <throw expr> from func that does not return error",
+		},
+	}
+
+	for _, test := range tests {
+		f := mustParse(test.src)
+		pkg := NewPackage("p", "p")
+		info := &Info{Defs: make(map[*syntax.Name]Object)}
+		check := NewChecker(&Config{}, pkg, info)
+		err := check.Files([]*syntax.File{f})
+		if test.want != "" && err == nil {
+			t.Errorf("check error was nil, want error substring %q", test.want)
+			continue
+		}
+		got := fmt.Sprint(err)
+		if err != nil && test.want == "" {
+			t.Errorf("check error was %q, want nil", got)
+			continue
+		}
+		if !strings.Contains(got, test.want) {
+			t.Errorf("check error was %q, want substring %q", got, test.want)
+		}
+	}
+
+}
+
 func TestVarKind(t *testing.T) {
 	f := mustParse(`package p
 

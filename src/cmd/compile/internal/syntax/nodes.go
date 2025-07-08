@@ -310,6 +310,11 @@ type (
 		Elem Expr
 		expr
 	}
+
+	Throw struct {
+		Idx int // used during conversion to IR nodes
+		expr
+	}
 )
 
 type expr struct {
@@ -375,6 +380,11 @@ type (
 	AssignStmt struct {
 		Op       Operator // 0 means no operation
 		Lhs, Rhs Expr     // Rhs == nil means Lhs++ (Op == Add) or Lhs-- (Op == Sub)
+		simpleStmt
+	}
+
+	ThrowStmt struct {
+		AssignStmt *AssignStmt
 		simpleStmt
 	}
 

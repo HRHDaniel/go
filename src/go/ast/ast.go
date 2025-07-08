@@ -489,12 +489,19 @@ type (
 		Dir   ChanDir   // channel direction
 		Value Expr      // value type
 	}
+
+	Throw struct {
+		NamePos token.Pos
+		Idx     int
+		Value   Expr
+	}
 )
 
 // Pos and End implementations for expression/type nodes.
 
 func (x *BadExpr) Pos() token.Pos  { return x.From }
 func (x *Ident) Pos() token.Pos    { return x.NamePos }
+func (x *Throw) Pos() token.Pos    { return x.NamePos }
 func (x *Ellipsis) Pos() token.Pos { return x.Ellipsis }
 func (x *BasicLit) Pos() token.Pos { return x.ValuePos }
 func (x *FuncLit) Pos() token.Pos  { return x.Type.Pos() }
@@ -529,6 +536,7 @@ func (x *ChanType) Pos() token.Pos      { return x.Begin }
 
 func (x *BadExpr) End() token.Pos { return x.To }
 func (x *Ident) End() token.Pos   { return token.Pos(int(x.NamePos) + len(x.Name)) }
+func (x *Throw) End() token.Pos   { return token.Pos(int(x.NamePos) + 1) }
 func (x *Ellipsis) End() token.Pos {
 	if x.Elt != nil {
 		return x.Elt.End()
@@ -587,6 +595,7 @@ func (*FuncType) exprNode()      {}
 func (*InterfaceType) exprNode() {}
 func (*MapType) exprNode()       {}
 func (*ChanType) exprNode()      {}
+func (*Throw) exprNode()         {}
 
 // ----------------------------------------------------------------------------
 // Convenience functions for Idents

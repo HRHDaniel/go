@@ -1042,6 +1042,11 @@ func (check *Checker) exprInternal(T *target, x *operand, e syntax.Expr, hint Ty
 	case *syntax.Name:
 		check.ident(x, e, nil, false)
 
+	case *syntax.Throw:
+		x.mode = variable
+		x.expr = e
+		x.typ = Universe.Lookup("error").Type()
+
 	case *syntax.DotsType:
 		// dots are handled explicitly where they are valid
 		check.error(e, InvalidSyntaxTree, "invalid use of ...")

@@ -226,6 +226,10 @@ func TestParseFile(t *testing.T) {
 	}
 }
 
+func TestParseThrows(t *testing.T) {
+	ParseFile("testdata/throws.go", func(err error) { t.Error(err) }, nil, 0)
+}
+
 // Make sure (PosMax + 1) doesn't overflow when converted to default
 // type int (when passed as argument to fmt.Sprintf) on 32bit platforms
 // (see test cases below).

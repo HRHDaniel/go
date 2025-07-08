@@ -471,6 +471,32 @@ func (check *Checker) stmt(ctxt stmtContext, s syntax.Stmt) {
 			check.assignment(&val, elem, "send")
 		}
 
+	case *syntax.ThrowStmt:
+		lhs := syntax.UnpackListExpr(s.AssignStmt.Lhs)
+		rhs := syntax.UnpackListExpr(s.AssignStmt.Rhs)
+
+		last := lhs[len(lhs)-1:]
+		if _, ok := last[0].(*syntax.Throw); ok {
+			res := check.sig.results
+			if res.Len() == 0 {
+				check.error(s, IncompatibleAssign, "cannot use <throw expr> from func that does not return error")
+			}
+
+			lastLhs := res.vars[res.Len()-1:]
+			check.initVars(lastLhs, last, s)
+		}
+
+		switch s.AssignStmt.Op {
+		case 0:
+			check.assignVars(lhs, rhs)
+			return
+		case syntax.Def:
+			check.shortVarDecl(s.AssignStmt.Pos(), lhs, rhs)
+			return
+		}
+
+		assert(false) // should never get here
+
 	case *syntax.AssignStmt:
 		if s.Rhs == nil {
 			// x++ or x--
